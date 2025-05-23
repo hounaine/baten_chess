@@ -61,7 +61,7 @@ Chaque case du plateau est codée par un entier `C*10 + L` (C = colonne 1→8, L
 - `h8` = 88.  
 
 Pour toute pièce, on note **src** (source) et **dst** (destination) ces codes de cases.  
-Un coup est valide si et seulement si la différence absolue |src − dst| appartient à **Sₚ**, l’ensemble des décalages permis pour le type de pièce p.  
+Un coup est valide si et seulement si la différence absolue \|src − dst\| appartient à **Sₚ**, l’ensemble des décalages permis pour le type de pièce p.  
 
 - **Pion** :  
   - Avancée : **Sₚ** = {1, 2} (1 ou 2 rangées vers l’avant)  
@@ -83,7 +83,7 @@ Each square is encoded as the integer `C*10 + L` (C = column 1→8, L = row 1→
 - `h8` = 88.  
 
 We call these codes **src** (source) and **dst** (destination).  
-A move is legal iff the absolute difference |src − dst| belongs to **Sₚ**, the set of allowed offsets for piece type p.  
+A move is legal iff the absolute difference \|src − dst\| belongs to **Sₚ**, the set of allowed offsets for piece type p.  
 
 - **Pawn**:  
   - Forward: **Sₚ** = {1, 2} (one or two ranks)  
