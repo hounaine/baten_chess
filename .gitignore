@@ -1,0 +1,26 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.sublime-*
+
+# MacOS
+.DS_Store
+
+# Logs
+*.log
+
+# Generated DSL output
+baten_chess_engine/validator_dsl.py
+
+# Environments
+.env
