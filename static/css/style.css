@@ -1,0 +1,26 @@
+table {
+    border-collapse: collapse;
+}
+
+td {
+    width: 60px;
+    height: 60px;
+    text-align: center;
+    font-size: 48px;
+    cursor: grab;
+}
+
+tr:nth-child(even) td:nth-child(odd),
+tr:nth-child(odd) td:nth-child(even) {
+    background: #769656;
+}
+
+tr:nth-child(odd) td:nth-child(odd),
+tr:nth-child(even) td:nth-child(even) {
+    background: #eeeed2;
+}
+
+/* Style durant le drag */
+td.dragover {
+    outline: 3px dashed #f00;
+}

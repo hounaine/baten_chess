@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Chess Board</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <table id="chessboard">
+        {% for L in range(8, 0, -1) %}
+        <tr>
+            {% for C in range(1, 9) %}
+            <td data-cell="{{ (C * 10) + L }}" draggable="true" ondragstart="dragStart(event)"
+                ondragover="dragOver(event)" ondrop="drop(event)"></td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+
+    <script type="text/javascript">
+        // Récupération des pièces passées par Flask
+        const piecesJson = '{{ pieces | tojson | safe }}';
+        const chessPieces = JSON.parse(piecesJson);
+
+        // Mappage code→symbole Unicode
+        const unicode = {
+            'wK': '♔', 'wQ': '♕', 'wR': '♖', 'wB': '♗', 'wN': '♘', 'wP': '♙',
+            'bK': '♚', 'bQ': '♛', 'bR': '♜', 'bB': '♝', 'bN': '♞', 'bP': '♟'
+        };
+
+        // Affichage initial des pièces
+        function renderBoard() {
+            document.querySelectorAll('#chessboard td').forEach(td => {
+                const cell = td.dataset.cell;
+                td.textContent = chessPieces[cell] ? unicode[chessPieces[cell]] : '';
+            });
+        }
+        renderBoard();
+
+        // Drag & Drop handlers
+        function dragStart(evt) {
+            const src = evt.target.dataset.cell;
+            if (!chessPieces[src]) {
+                evt.preventDefault();
+                return;
+            }
+            evt.dataTransfer.setData('text/plain', src);
+        }
+        function dragOver(evt) {
+            evt.preventDefault();
+            evt.currentTarget.classList.add('dragover');
+        }
+        function drop(evt) {
+            evt.preventDefault();
+            const dst = evt.currentTarget.dataset.cell;
+            const src = evt.dataTransfer.getData('text/plain');
+            evt.currentTarget.classList.remove('dragover');
+
+            // Validation côté serveur
+            fetch('/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ piece: chessPieces[src], src: parseInt(src), dst: parseInt(dst) })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.valid) {
+                        // Mise à jour locale
+                        chessPieces[dst] = chessPieces[src];
+                        delete chessPieces[src];
+                        renderBoard();
+                    } else {
+                        alert('Coup illégal !');
+                    }
+                });
+        }
+    </script>
+</body>
+
+</html>

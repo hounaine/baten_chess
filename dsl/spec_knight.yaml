@@ -1,0 +1,20 @@
+state: Jeu
+fields:
+  - position
+  - castling_rights
+  - en_passant_target
+  - turn
+  - history
+
+transitions:
+  - name: Move
+    piece_type: 'N'
+    when:
+      - "piece[1] == 'N'"  
+      - "piece[0] == state.turn"
+      - "let (c1, l1) = (src//10, src%10)"
+      - "let (c2, l2) = (dst//10, dst%10)"
+      - "(abs(c1-c2), abs(l1-l2)) in {(1,2),(2,1)}"
+      - "state.is_empty(dst) or state.is_enemy(dst, piece[0])"
+    do:
+      - "state.apply_move(piece, src, dst)"

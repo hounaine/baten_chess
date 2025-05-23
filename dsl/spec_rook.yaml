@@ -1,0 +1,20 @@
+# spec_rook.yaml
+state: Jeu
+fields:
+  - position           # Map<Cell,Piece>
+  - castling_rights    # Dict[str,bool]
+  - en_passant_target  # Optional[int]
+  - turn               # 'w'|'b'
+  - history            # List[...]
+
+transitions:
+  - name: Move
+    piece_type: 'R'
+    when:
+      - "piece[1] == 'R'"                      # c’est une tour
+      - "piece[0] == state.turn"               # bonne couleur au trait
+      - "abs(src - dst) in ROOK_DIFFS"          # condition diff-based
+      - "state.path_clear(src, dst)"           # trajectoire libre
+      - "state.is_empty(dst) or state.is_enemy(dst, piece[0])"
+    do:
+      - "state.apply_move(piece, src, dst)"
