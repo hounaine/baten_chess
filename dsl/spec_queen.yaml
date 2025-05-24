@@ -1,0 +1,22 @@
+# dsl/spec_queen.yaml
+
+state: Jeu
+fields:
+  - position
+  - castling_rights
+  - en_passant_target
+  - turn
+  - history
+
+transitions:
+  - name: Move
+    piece_type: 'Q'
+    when:
+      - "piece[1] == 'Q'"                                   # c’est une reine
+      - "piece[0] == state.turn"                            # bonne couleur
+      - "diff = abs(src - dst)"
+      - "diff in ROOK_DIFFS or diff in BISHOP_DIFFS"         # union Tour + Fou
+      - "state.path_clear(src, dst)"                        # pas d’obstacle
+      - "state.is_empty(dst) or state.is_enemy(dst, piece[0])"
+    do:
+      - "state.apply_move(piece, src, dst)"

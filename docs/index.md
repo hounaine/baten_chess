@@ -11,7 +11,7 @@
 
 **FR :**  
 Baten Chess Engine est un moteur d’échecs original et léger, conçu pour allier performance et élégance mathématique.  
-- **Objectif** : formaliser la validation des coups grâce au calcul de |src − dst| ∈ S<sub>p</sub>, où chaque pièce dispose de son propre ensemble de différences, inspiré de la Fibochess Theory.  
+- **Objectif** : formaliser la validation des coups grâce au calcul de `|src − dst|` ∈ S<sub>p</sub>, où chaque pièce dispose de son propre ensemble de différences, inspiré de la Fibochess Theory.  
 - **Fonctionnalités** :  
   - Chargement de position FEN,  
   - Validation de tous les coups légaux (prise en passant, roque, promotion, échec/échec-et-mat, répétition),  
@@ -25,7 +25,7 @@ Baten Chess Engine est un moteur d’échecs original et léger, conçu pour all
 
 **EN :**
 Baten Chess Engine is a lightweight, extensible chess engine designed to combine performance with mathematical elegance.  
-- **Goal**: formalize move validation using |src − dst| ∈ S<sub>p</sub>, where each piece has its own set of allowed differences, inspired by the Fibochess Theory.  
+- **Goal**: formalize move validation using `|src − dst|` ∈ S<sub>p</sub>, where each piece has its own set of allowed differences, inspired by the Fibochess Theory.  
 - **Features**:  
   - FEN position loading,  
   - Full legal move validation (en passant, castling, promotion, check/checkmate, repetition),  

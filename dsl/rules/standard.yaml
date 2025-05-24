@@ -1,0 +1,37 @@
+# dsl/rules/standard.yaml
+
+turn_order: alternate
+
+special_moves:
+  en_passant:
+    enabled: true
+    condition: "dst == state.en_passant_target"
+
+  castling:
+    enabled: true
+    kingside:
+      allowed_if:
+        - "state.castling_rights['K']"
+        - "state.path_clear(51, 71)"      # e1→g1
+        - "not rule_engine.is_in_check(state, 'w')"
+        - "not rule_engine.square_attacked(61, 'b')"  # f1
+        - "not rule_engine.square_attacked(71, 'b')"  # g1
+    queenside:
+      allowed_if:
+        - "state.castling_rights['Q']"
+        - "state.path_clear(51, 31)"      # e1→c1
+        - "not rule_engine.is_in_check(state, 'w')"
+        - "not rule_engine.square_attacked(41, 'b')"  # d1
+        - "not rule_engine.square_attacked(31, 'b')"  # c1
+
+  promotion:
+    enabled: true
+    rows:
+      white: 8
+      black: 1
+    to: ['Q','R','B','N']
+
+draw_conditions:
+  repetition: 3
+  fifty_moves: 50
+  insufficient_material: true

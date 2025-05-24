@@ -1,0 +1,21 @@
+# dsl/spec_king.yaml
+
+state: Jeu
+fields:
+  - position
+  - castling_rights
+  - en_passant_target
+  - turn
+  - history
+
+transitions:
+  - name: Move
+    piece_type: 'K'
+    when:
+      - "piece[1] == 'K'"                                   # c’est un roi
+      - "piece[0] == state.turn"
+      - "diff = abs(src - dst)"
+      - "diff in {1,9,10,11} or diff == 2"                  # 2 = roque
+      # (plus tard : vérif. roque, cases non attaquées…)
+    do:
+      - "state.apply_move(piece, src, dst)"

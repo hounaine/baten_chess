@@ -1,0 +1,22 @@
+# dsl/spec_bishop.yaml
+
+state: Jeu
+fields:
+  - position
+  - castling_rights
+  - en_passant_target
+  - turn
+  - history
+
+transitions:
+  - name: Move
+    piece_type: 'B'
+    when:
+      - "piece[1] == 'B'"                              # c’est un fou
+      - "piece[0] == state.turn"                       # bonne couleur au trait
+      - "diff = abs(src - dst)"                        # différence brute
+      - "diff in {9,18,27,36,45,54,63, 11,22,33,44,55,66,77}"  # diagonales
+      - "state.path_clear(src, dst)"                   # trajectoire libre
+      - "state.is_empty(dst) or state.is_enemy(dst, piece[0])"
+    do:
+      - "state.apply_move(piece, src, dst)"
