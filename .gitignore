@@ -19,8 +19,5 @@ venv/
 # Logs
 *.log
 
-# Generated DSL output
-baten_chess_engine/validator_dsl.py
-
 # Environments
 .env
