@@ -1,74 +1,124 @@
 # app.py
 
 from flask import Flask, render_template, request, jsonify
+import logging
+import copy
+from baten_chess_engine.rules import opposite
 
-# 1️⃣ Imports pour la marche et les règles
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
 from baten_chess_engine.validator_dsl import is_valid_move_dsl
 from baten_chess_engine.rules import (
     is_in_check, square_attacked,
     move_respects_pin, castling_allowed, opposite
 )
-from baten_chess_engine.board import Board  # Import du Board
+from baten_chess_engine.board import Board
 
-# --- 2️⃣ Fonction de validation globale ---
 def is_move_legal(piece: str, src: int, dst: int, board: Board, last_move=None) -> bool:
     # 1) marche pure
-    if not is_valid_move_dsl(piece, src, dst, board, last_move):
+    pure_valid = is_valid_move_dsl(piece, src, dst, board, last_move)
+    logging.info(f"[app.py] is_move_legal → pure_valid: {pure_valid}")
+    if not pure_valid:
+        logging.info("[app.py] rejected at pure move validation")
         return False
 
-    # 2) on simule
-    new_board = board.copy()
+    # 2) on simule le coup
+    new_board = copy.deepcopy(board)
     new_board.apply_move(piece, src, dst)
     new_board.last_move = (src, dst)
+    logging.info(f"[app.py] simulated move, new_board.last_move: {new_board.last_move}")
 
     color = piece[0]
 
     # 3) pas d’échec après coup
-    if is_in_check(new_board, color):
+    in_check = is_in_check(new_board, color)
+    logging.info(f"[app.py] is_in_check after move: {in_check}")
+    if in_check:
+        logging.info("[app.py] rejected because king would be in check")
         return False
 
     # 4) cas du roi : pas sur case attaquée + roque
     if piece[1] == 'K':
-        if square_attacked(dst, opposite(color), new_board):
-            return False
-        if abs(src - dst) == 2 and not castling_allowed(src, dst, board):
+        attacked = square_attacked(dst, opposite(color), new_board)
+        logging.info(f"[app.py] king moving into attacked square? {attacked}")
+        if attacked:
+            logging.info("[app.py] rejected because king moving into attacked square")
             return False
 
-    # 5) clouages
-    if not move_respects_pin(piece, src, dst, board):
+        if abs(src - dst) == 2:
+            castling_ok = castling_allowed(src, dst, board)
+            logging.info(f"[app.py] castling_allowed? {castling_ok}")
+            if not castling_ok:
+                logging.info("[app.py] rejected castling")
+                return False
+
+    # 5) clouages (pin)
+    pin_ok = move_respects_pin(piece, src, dst, board)
+    logging.info(f"[app.py] move_respects_pin: {pin_ok}")
+    if not pin_ok:
+        logging.info("[app.py] rejected due to pin")
         return False
 
+    logging.info("[app.py] move_legal → True")
     return True
 
-# --- 3️⃣ Création de l’app et du plateau initial ---
+# --- Création de l’app et du plateau initial ---
 app = Flask(__name__)
 board = Board()
 board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+board.turn = 'w'
+board.last_move = None
 
-# --- 4️⃣ Route racine pour afficher le damier ---
 @app.route("/")
 def index():
     return render_template("board.html", pieces=board.pieces)
 
-# --- 5️⃣ Route de validation ---
 @app.route("/validate", methods=["POST"])
 def validate():
-    data = request.get_json()
-    piece = data["piece"]
-    src   = data["src"]
-    dst   = data["dst"]
+    try:
+        data = request.get_json()
+        piece = data.get("piece")
+        src   = data.get("src")
+        dst   = data.get("dst")
+        if not piece or src is None or dst is None:
+            return jsonify({"error": "Invalid input"}), 400
 
-    last_move = getattr(board, "last_move", None)
+        # Hors-tour → refus simple
+        if piece[0] != board.turn:
+            logging.info(f"[app.py] Rejected: not {board.turn}'s turn")
+            return jsonify({"valid": False}), 200
 
-    # on appelle la validation globale
-    valid = is_move_legal(piece, src, dst, board, last_move)
+        logging.info(f"[app.py] Attempting move: {piece!r} from {src} to {dst}")
+        logging.info(f"[app.py] board.turn = {board.turn!r}, last_move = {board.last_move!r}")
 
-    # si OK, on applique le coup pour mettre à jour le plateau
-    if valid:
-        board.apply_move(piece, src, dst)
-        board.last_move = (src, dst)
+        valid = is_move_legal(piece, src, dst, board, board.last_move)
+        logging.info(f"[app.py] → is_move_legal: {valid}")
 
-    return jsonify({"valid": valid, "pieces": board.pieces})
+        if valid:
+            board.apply_move(piece, src, dst)
+            board.last_move = (src, dst)
+            board.turn = opposite(board.turn)
+            logging.info(f"[app.py] Move applied. Next turn: {board.turn!r}")
+        else:
+            logging.info("[app.py] Move rejected")
+
+        return jsonify({"valid": valid, "pieces": board.pieces})
+    except Exception as e:
+        logging.error(f"[app.py] Error during move validation: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route("/reset", methods=["GET", "POST"])
+def reset_board():
+    try:
+        board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+        board.turn = 'w'
+        board.last_move = None
+        logging.info("[app.py] Board reset to initial state.")
+        return jsonify({"status": "success", "pieces": board.pieces})
+    except Exception as e:
+        logging.error(f"[app.py] Error during board reset: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
