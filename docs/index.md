@@ -40,14 +40,14 @@ Baten Chess Engine is a lightweight, extensible chess engine designed to combine
   ## Avantages / Benefits
 
 **FR :**  
-- **Simplicité** : validation par la différence des codes de cases (src et dst sont les indices de cases codés par colonne×10 + rangée), |src – dst| ∈ Sₚ.  
+- **Simplicité** : validation par la différence des codes de cases (src et dst sont les indices de cases codés par colonne×10 + rangée), `|src – dst|` ∈ Sₚ.  
 - **Extensible** : ajoutez ou modifiez des règles via la mini-DSL YAML/Python.  
 - **Performant** : cœur Python léger, prêt à porter en Rust ou C++.  
 - **Interactif** : interface Web Flask avec glisser-déposer des pièces.  
 - **Rigoureux** : architecture en automate d’états formel, facilement vérifiable.
 
 **EN :**  
-- **Simplicity**: move validation by the difference between square codes (src and dst are the square indices encoded as column×10 + row), |src – dst| ∈ Sₚ.  
+- **Simplicity**: move validation by the difference between square codes (src and dst are the square indices encoded as column×10 + row), `|src – dst|` ∈ Sₚ.  
 - **Extensible**: easily add or modify rules via the YAML/Python mini-DSL.  
 - **Efficient**: lightweight Python core, ready for a Rust or C++ port.  
 - **Interactive**: Flask web UI with drag-and-drop.  
@@ -68,14 +68,14 @@ Un coup est valide si la valeur absolue de la différence entre le code de la ca
   - Avancée : **Sₚ** = {1, 2} (1 ou 2 rangées vers l’avant)  
   - Prise : **Sₚ** = {9, 11} (diagonales)  
   - *Ex.* :  
-    - e2 → e3 : **src** = 52, **dst** = 53 → |52−53| = 1 (valide)  
-    - e4 → f5 : **src** = 54, **dst** = 65 → |54−65| = 11 (valide)  
+    - e2 → e3 : **src** = 52, **dst** = 53 → `|52−53|` = 1 (valide)  
+    - e4 → f5 : **src** = 54, **dst** = 65 → `|54−65|` = 11 (valide)  
 
 - **Tour** :  
   - **Sₚ** = {1, 2, …, 7} ∪ {10, 20, …, 70}  
   - *Ex.* :  
-    - a1 → a4 : **src** = 11, **dst** = 14 → |11−14| = 3 (valide)  
-    - d5 → g5 : **src** = 45, **dst** = 75 → |45−75| = 30 (valide)  
+    - a1 → a4 : **src** = 11, **dst** = 14 → `|11−14|` = 3 (valide)  
+    - d5 → g5 : **src** = 45, **dst** = 75 → `|45−75|` = 30 (valide)  
 
 **EN :**  
 Each square is encoded as the integer `C*10 + L` (C = column 1→8, L = row 1→8), e.g.  
@@ -90,14 +90,14 @@ A move is valid if the absolute value of the difference between the source squar
   - Forward: **Sₚ** = {1, 2} (one or two ranks)  
   - Capture: **Sₚ** = {9, 11} (diagonals)  
   - *E.g.*:  
-    - e2 → e3: **src** = 52, **dst** = 53 → |52−53| = 1 (valid)  
-    - e4 → f5: **src** = 54, **dst** = 65 → |54−65| = 11 (valid)  
+    - e2 → e3: **src** = 52, **dst** = 53 → `|52−53|` = 1 (valid)  
+    - e4 → f5: **src** = 54, **dst** = 65 → `|54−65|` = 11 (valid)  
 
 - **Rook**:  
   - **Sₚ** = {1, 2, …, 7} ∪ {10, 20, …, 70}  
   - *E.g.*:  
-    - a1 → a4: **src** = 11, **dst** = 14 → |11−14| = 3 (valid)  
-    - d5 → g5: **src** = 45, **dst** = 75 → |45−75| = 30 (valid)  
+    - a1 → a4: **src** = 11, **dst** = 14 → `|11−14|` = 3 (valid)  
+    - d5 → g5: **src** = 45, **dst** = 75 → `|45−75|` = 30 (valid)  
 
 ## Contents
 
