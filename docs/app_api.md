@@ -80,7 +80,4 @@ echo '{"piece":"wP","src":52,"dst":54}' \
 curl -X POST http://127.0.0.1:5000/reset
 ```
 
----
-
-With this reference, users can integrate the engine into other applications by calling its HTTP API.
 
