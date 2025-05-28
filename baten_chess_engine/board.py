@@ -1,7 +1,8 @@
-# Updated baten_chess_engine/board.py with corrected path_clear
+# Updated baten_chess_engine/board.py
 
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List, Tuple, FrozenSet
+import logging
 
 @dataclass
 class Board:
@@ -12,6 +13,7 @@ class Board:
     en_passant_target: Optional[int] = None
     turn: str = 'w'
     last_move: Optional[Tuple[int, int]] = None
+    last_move_was_capture: bool = False
     history: List[Tuple[FrozenSet[Tuple[int,str]], Tuple[Tuple[str,bool],...], Optional[int], str]] = field(default_factory=list)
 
     def record_state(self):
@@ -38,6 +40,7 @@ class Board:
         self.en_passant_target = None
         self.turn = 'w'
         self.last_move = None
+        self.last_move_was_capture = False
 
     def is_empty(self, cell: int) -> bool:
         return cell not in self.pieces
@@ -47,30 +50,15 @@ class Board:
         return bool(p and p[0] != color)
 
     def path_clear(self, src: int, dst: int) -> bool:
-        """
-        Vérifie qu'aucune pièce n'obstrue le segment src → dst
-        pour les pièces coulissantes (tour, fou, dame).
-        """
-        src_C, src_L = divmod(src, 10)
-        dst_C, dst_L = divmod(dst, 10)
-        dc = dst_C - src_C
-        dr = dst_L - src_L
-        sc = (dc > 0) - (dc < 0)
-        sr = (dr > 0) - (dr < 0)
-
-        # Mouvement vertical (même colonne)
-        if dc == 0 and dr != 0:
-            step = sr
-        # Mouvement horizontal (même rangée)
-        elif dr == 0 and dc != 0:
-            step = sc * 10
-        # Mouvement diagonal
-        elif abs(dr) == abs(dc):
-            step = sc * 10 + sr
-        else:
-            # Non coulissant, pas d'obstacle à vérifier
+        src_file, src_rank = divmod(src, 10)
+        dst_file, dst_rank = divmod(dst, 10)
+        df = dst_file - src_file
+        dr = dst_rank - src_rank
+        step_file = (df > 0) - (df < 0)
+        step_rank = (dr > 0) - (dr < 0)
+        step = step_file * 10 + step_rank
+        if not (df == 0 or dr == 0 or abs(df) == abs(dr)):
             return True
-
         pos = src + step
         while pos != dst:
             if pos in self.pieces:
@@ -83,15 +71,17 @@ class Board:
         self.en_passant_target = None
         if piece[1] == 'P' and abs(src - dst) == 20:
             self.en_passant_target = (src + dst) // 2
+        was_capture = False
+        if dst in self.pieces:
+            was_capture = True
         if piece[1] == 'P' and dst == prev_enp and self.last_move:
             lm_src, lm_dst = self.last_move
             if lm_dst in self.pieces:
+                was_capture = True
                 del self.pieces[lm_dst]
-        if dst in self.pieces:
+        if dst in self.pieces and not was_capture:
             del self.pieces[dst]
         self.pieces[dst] = piece
         del self.pieces[src]
+        self.last_move_was_capture = was_capture
         self.last_move = (src, dst)
-        self.turn = 'b' if self.turn == 'w' else 'w'
-
-print("Patched Board.path_clear: correct horizontal, vertical, diagonal steps")
