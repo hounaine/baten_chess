@@ -1,74 +1,53 @@
-# app.py
+# Updated app.py
 
 from flask import Flask, render_template, request, jsonify
 import logging
 import copy
-from baten_chess_engine.rules import opposite
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-
-from baten_chess_engine.validator_dsl import is_valid_move_dsl
-from baten_chess_engine.rules import (
-    is_in_check, square_attacked,
-    move_respects_pin, castling_allowed, opposite
+from alternation_engine import (
+    AlternationEngine, Phase,
+    NeverAlternate, StrictAlternate,
+    MoveContext
 )
+
+from baten_chess_engine import error_messages
+from baten_chess_engine.validator_dsl import is_valid_move_dsl
+
+# Règles de base
+from baten_chess_engine.rules import (
+    is_in_check,
+    square_attacked,
+    move_respects_pin,
+    castling_allowed,
+    opposite
+)
+
+# Génération de coups & fin de partie
+from baten_chess_engine.check_rules import (
+    generate_legal_moves,
+    is_checkmate,
+    is_stalemate
+)
+
 from baten_chess_engine.board import Board
 
-def is_move_legal(piece: str, src: int, dst: int, board: Board, last_move=None) -> bool:
-    # 1) marche pure
-    pure_valid = is_valid_move_dsl(piece, src, dst, board, last_move)
-    logging.info(f"[app.py] is_move_legal → pure_valid: {pure_valid}")
-    if not pure_valid:
-        logging.info("[app.py] rejected at pure move validation")
-        return False
 
-    # 2) on simule le coup
-    new_board = copy.deepcopy(board)
-    new_board.apply_move(piece, src, dst)
-    new_board.last_move = (src, dst)
-    logging.info(f"[app.py] simulated move, new_board.last_move: {new_board.last_move}")
+# Instantiate error messages
+errors = error_messages.ERROR_MESSAGES
 
-    color = piece[0]
+# Phases setup for classical chess: strict alternate every move
+phases = [
+    Phase('battle', StrictAlternate(), lambda ctx: False),
+]
+engine = AlternationEngine(phases, initial_turn='w')
 
-    # 3) pas d’échec après coup
-    in_check = is_in_check(new_board, color)
-    logging.info(f"[app.py] is_in_check after move: {in_check}")
-    if in_check:
-        logging.info("[app.py] rejected because king would be in check")
-        return False
-
-    # 4) cas du roi : pas sur case attaquée + roque
-    if piece[1] == 'K':
-        attacked = square_attacked(dst, opposite(color), new_board)
-        logging.info(f"[app.py] king moving into attacked square? {attacked}")
-        if attacked:
-            logging.info("[app.py] rejected because king moving into attacked square")
-            return False
-
-        if abs(src - dst) == 2:
-            castling_ok = castling_allowed(src, dst, board)
-            logging.info(f"[app.py] castling_allowed? {castling_ok}")
-            if not castling_ok:
-                logging.info("[app.py] rejected castling")
-                return False
-
-    # 5) clouages (pin)
-    pin_ok = move_respects_pin(piece, src, dst, board)
-    logging.info(f"[app.py] move_respects_pin: {pin_ok}")
-    if not pin_ok:
-        logging.info("[app.py] rejected due to pin")
-        return False
-
-    logging.info("[app.py] move_legal → True")
-    return True
-
-# --- Création de l’app et du plateau initial ---
+logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 board = Board()
 board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
-board.turn = 'w'
-board.last_move = None
+
+# Helper to list all cells on board
+ALL_CELLS = [file * 10 + rank for file in range(1,9) for rank in range(1,9)]
 
 @app.route("/")
 def index():
@@ -79,46 +58,120 @@ def validate():
     try:
         data = request.get_json()
         piece = data.get("piece")
-        src   = data.get("src")
-        dst   = data.get("dst")
+        src = data.get("src")
+        dst = data.get("dst")
+
+        # Vérification JSON minimal
         if not piece or src is None or dst is None:
-            return jsonify({"error": "Invalid input"}), 400
+            msg = "Requête invalide"
+            return jsonify({
+                "valid": False,
+                "pieces": board.pieces,
+                "turn": board.turn,
+                "message": msg
+            }), 400
 
-        # Hors-tour → refus simple
+        # 1) Mauvais tour
         if piece[0] != board.turn:
-            logging.info(f"[app.py] Rejected: not {board.turn}'s turn")
-            return jsonify({"valid": False}), 200
+            msg = errors["wrong_turn"].format(player=opposite(board.turn))
+            logging.info(msg)
+            return jsonify({
+                "valid": False,
+                "pieces": board.pieces,
+                "turn": board.turn,
+                "message": msg
+            }), 200
 
-        logging.info(f"[app.py] Attempting move: {piece!r} from {src} to {dst}")
-        logging.info(f"[app.py] board.turn = {board.turn!r}, last_move = {board.last_move!r}")
+        # 2) Cinématique pure + obstacle
+        if not is_valid_move_dsl(piece, src, dst, board, board.last_move) or not board.path_clear(src, dst):
+            msg = errors["invalid_move"]
+            return jsonify({
+                "valid": False,
+                "pieces": board.pieces,
+                "turn": board.turn,
+                "message": msg
+            }), 200
 
-        valid = is_move_legal(piece, src, dst, board, board.last_move)
-        logging.info(f"[app.py] → is_move_legal: {valid}")
+        # 3) Sécurité du roi (auto-échec)
+        test_board = copy.deepcopy(board)
+        test_board.apply_move(piece, src, dst)
+        if is_in_check(test_board, piece[0]):
+            msg = errors["in_check"]
+            return jsonify({
+                "valid": False,
+                "pieces": board.pieces,
+                "turn": board.turn,
+                "message": msg
+            }), 200
 
-        if valid:
-            board.apply_move(piece, src, dst)
-            board.last_move = (src, dst)
-            board.turn = opposite(board.turn)
-            logging.info(f"[app.py] Move applied. Next turn: {board.turn!r}")
-        else:
-            logging.info("[app.py] Move rejected")
+        # 4) Roque spécifique au roi
+        if piece[1] == 'K' and abs(src - dst) == 2:
+            if not castling_allowed(src, dst, board):
+                msg = errors["cannot_castle"]
+                return jsonify({
+                    "valid": False,
+                    "pieces": board.pieces,
+                    "turn": board.turn,
+                    "message": msg
+                }), 200
 
-        return jsonify({"valid": valid, "pieces": board.pieces})
+        # 5) Clouage (pin)
+        tmp_board = copy.deepcopy(board)
+        if not move_respects_pin(piece, src, dst, tmp_board):
+            msg = errors["pinned_piece"]
+            return jsonify({
+                "valid": False,
+                "pieces": board.pieces,
+                "turn": board.turn,
+                "message": msg
+            }), 200
+
+        # Si tout est OK, on applique le coup
+        board.apply_move(piece, src, dst)
+        ctx = MoveContext(move=(piece, src, dst), is_capture=board.last_move_was_capture)
+        engine.register_move(ctx)
+        board.turn = engine.get_current_turn()
+
+        # 6) Détection d’échec / mat / pat
+        opp = board.turn
+        message = None
+        if is_in_check(board, opp):
+            # premier niveau : simple échec
+            message = errors["check"].format(player=opp)
+            # vérification du mat
+            legal = generate_legal_moves(board, opp)
+            if not legal:
+                message = errors["checkmate"].format(player=opp)
+
+        # Réponse finale
+        response = {
+            "valid": True,
+            "pieces": board.pieces,
+            "turn": board.turn
+        }
+        if message:
+            response["message"] = message
+
+        return jsonify(response), 200
+
     except Exception as e:
-        logging.error(f"[app.py] Error during move validation: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        logging.error(f"Error during move validation: {e}")
+        return jsonify({
+            "valid": False,
+            "pieces": board.pieces,
+            "turn": board.turn,
+            "message": "Erreur interne"
+        }), 500
 
-@app.route("/reset", methods=["GET", "POST"])
+
+@app.route("/reset", methods=["GET","POST"])
 def reset_board():
-    try:
-        board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
-        board.turn = 'w'
-        board.last_move = None
-        logging.info("[app.py] Board reset to initial state.")
-        return jsonify({"status": "success", "pieces": board.pieces})
-    except Exception as e:
-        logging.error(f"[app.py] Error during board reset: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+    board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+    board.turn = 'w'
+    board.last_move = None
+    board.last_move_was_capture = False
+    logging.info("Board reset to initial state.")
+    return jsonify({"status":"success","pieces":board.pieces}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -1,89 +1,210 @@
-# Architecture
+# Architecture of the Baten Chess Engine
 
-This document describes the overall architecture of the Baten Chess Engine, from the front-end UI down to the board state and validator.
-
-## High-Level Overview
-
-[ Web UI (Flask + HTML/CSS/JS) ]
-↓
-[ REST API / app.py ]
-• routes: / (board), /validate, /reset
-↓
-[ Rule Engine (rules.py) ]
-• turn management
-• destination occupation
-• pure movement dispatch → validator_dsl
-• simulation + check + special rules (castling, en-passant, promotion)
-• pins, check detection
-↓
-[ Movement Validator (validator_dsl.py) ]
-• pure kinematics for each piece type
-• geometry (rook, bishop, knight, queen, pawn, king)
-• sliding obstruction (path_clear)
-↓
-[ Board Model (board.py) ]
-• pieces: Dict[int,str]
-• load_fen(), apply_move(), castling rights, en-passant target, history
-• path_clear(), is_empty(), is_enemy()
-
-## Components
-
-### 1. Front-End UI (`templates/board.html` + `static/`)
-- Interactive chessboard rendered by Flask/Jinja2.  
-- Drag-&-drop events trigger POST `/validate`.  
-- Renders Unicode piece glyphs and highlights legal/illegal moves.
-
-### 2. REST API (`app.py`)
-- `GET /` → serve the board UI.  
-- `POST /validate` → calls `is_move_legal()`, returns `{ valid, pieces }`.  
-- `POST /reset` → resets board to initial FEN.  
-- Manages `board.turn`, `board.last_move`, and logs each step.
-
-### 3. Rule Engine (`rules.py`)
-- **`is_move_legal()`** orchestrates full legality:  
-  1. Turn check  
-  2. Destination occupation  
-  3. Pure movement (dispatch to DSL)  
-  4. Simulation + self-check prevention  
-  5. King special (castling, attacked squares)  
-  6. En-passant capture  
-  7. Promotions (state update)  
-  8. Pin detection  
-- **`is_in_check()`**, **`square_attacked()`**, **`castling_allowed()`**, **`move_respects_pin()`**.
-
-### 4. Movement Validator (DSL) (`validator_dsl.py`)
-- Auto-generated from YAML specs in `dsl/`.  
-- Implements **pure geometry**:  
-  - Rook: same row/column + no obstruction  
-  - Bishop: diagonal + no obstruction  
-  - Queen: rook ∪ bishop  
-  - Knight: L-shape  
-  - Pawn: advances & captures (flags en-passant)  
-  - King: one-step moves  
-- Completely **stateless** regarding turn, captures, or special rules.
-
-### 5. Board Model (`board.py`)
-- Maintains `pieces` map: square code → piece code (`'wP'`, `'bK'`, …).  
-- FEN loading/parsing.  
-- `path_clear(src, dst)` for sliding pieces.  
-- Castling rights, en-passant target, game history (for threefold repetition).
-
-## Data Flow
-
-1. **User** drags a piece → browser computes `piece`, `src`, `dst`.  
-2. **UI JS** sends JSON to `/validate`.  
-3. **`app.py`** invokes `is_move_legal()`.  
-4. **`rules.py`** calls into **`validator_dsl.py`** for pure movement.  
-5. **`rules.py`** simulates move, checks special rules and check/pin.  
-6. **`app.py`** updates `Board` if legal; returns new `pieces` map to UI.  
-7. **UI** re-renders the board.
-
-## Extensibility
-
-- **Variants**: swap in a different `rules_xyz.py` or override `is_move_legal`.  
-- **New pieces**: add YAML spec in `dsl/`, re-generate `validator_dsl.py`, and extend `rules.py` if needed.  
-- **Language ports**: the lightweight core (pure geometry + simple state) can be ported to Rust or C++ for performance.
+This document provides both a **high-level overview** and a **detailed technical deep-dive** into the modular components of the Baten Chess Engine. It is intended for developers and mathematicians seeking a thorough understanding of the code structure, algorithms, and extension points.
 
 ---
 
-With this reference, contributors and end-users can quickly grasp how each module interacts and where to extend or debug.
+## 1. High-Level Overview
+
+**Layers (top ↓ bottom):**
+
+1. **Web UI** (Flask + HTML/CSS/JS)
+
+   * Renders the chessboard.
+   * Captures drag-&-drop, sends JSON to the server.
+2. **REST API** (`app.py`)
+
+   * Routes: `/` (board), `/validate`, `/reset`.
+   * Orchestrates validation, state update, and responses.
+3. **Rule Engine** (`rules.py`)
+
+   * **Turn management**
+   * **Destination occupancy**
+   * **Pure movement dispatch** → `validator_dsl.py`
+   * **Simulation + check prevention**, **special rules** (castling, en-passant, promotion)
+   * **Pins**, **check detection**
+4. **Movement Validator DSL** (`validator_dsl.py`)
+
+   * Stateless kinematics per piece type
+   * Geometry: rook, knight, bishop, queen, pawn, king
+   * Sliding obstruction (`path_clear`)
+5. **Board Model** (`board.py`)
+
+   * `pieces: Dict[int,str]`
+   * `load_fen()`, `apply_move()`, castling rights, en-passant target, history
+   * `path_clear()`, `is_empty()`, `is_enemy()`
+
+---
+
+## 2. Module Breakdown
+
+### 2.1 Board Model (`board.py`)
+
+```python
+@dataclass
+class Board:
+    pieces: Dict[int, str]
+    castling_rights: Dict[str, bool]
+    en_passant_target: Optional[int]
+    turn: str
+    last_move: Optional[Tuple[int,int]]
+    last_move_was_capture: bool
+
+    def load_fen(self, fen: str): ...
+    def is_empty(self, cell: int) -> bool: ...
+    def path_clear(self, src: int, dst: int) -> bool: ...
+    def apply_move(self, piece: str, src: int, dst: int): ...
+```
+
+* **Encoding**: square = `file*10 + rank`.
+* **`path_clear`**: computes directional step and scans intermediate squares in O(D).
+* **`apply_move`**: handles piece movement, captures, en passant, promotions, and updates state flags.
+
+### 2.2 Movement Validator DSL (`validator_dsl.py`)
+
+* Implements **pure geometry** for each piece:
+
+  * Rook: straight lines
+  * Bishop: diagonals
+  * Queen: union of rook and bishop
+  * Knight: L-shape
+  * Pawn: forward and diagonal captures
+  * King: one-step moves
+* **Stateless**: does not consider turn, captures, or special rules.
+
+### 2.3 Core Rules (`rules.py`)
+
+* **`is_move_legal()`** orchestrates full validation:
+
+  1. Turn check
+  2. Destination occupation
+  3. Pure movement (DSL)
+  4. Simulation + self-check prevention (`move_respects_pin`)
+  5. King special (castling, attacked squares)
+  6. En passant
+  7. Promotion state update
+  8. Pin detection
+
+* **`is_in_check`**, **`square_attacked`** implement check detection.
+
+* **`castling_allowed`** verifies rights and simulates king path.
+
+* **`move_respects_pin`** deep-copies board to ensure no mutation.
+
+### 2.4 Turn Alternation (`alternation_engine.py`)
+
+```python
+class TurnRule(ABC):
+    def should_switch(self, ctx: MoveContext) -> bool: ...
+
+class Phase:
+    def __init__(self, name, rule, transition_condition): ...
+
+class AlternationEngine:
+    def __init__(self, phases, initial_turn='w'): ...
+    def register_move(self, ctx): ...
+    def get_current_turn(self) -> str: ...
+```
+
+* **`StrictAlternate`**, **`NeverAlternate`**, **`AlternateOnCapture`**, **`AlternateOnLastSequence`**.
+* **Phases**: each phase has its own `TurnRule` and transition trigger.
+* **Engine**: advances phase and toggles turn based solely on rules.
+
+### 2.5 Endgame Logic (`check_rules.py`)
+
+```python
+def generate_legal_moves(board, player): ...
+def is_checkmate(board, player): ...
+def is_stalemate(board, player): ...
+```
+
+* Filters in five stages: DSL, path clearance, pin, self-check, castling.
+* `is_checkmate`: in check + no legal moves.
+* `is_stalemate`: not in check + no legal moves.
+
+---
+
+## 3. Technical Deep Dive
+
+### 3.1 `path_clear` Algorithm
+
+```python
+def path_clear(self, src, dst):
+    df = (dst//10) - (src//10)
+    dr = (dst%10) - (src%10)
+    step = sign(df)*10 + sign(dr)
+    pos = src + step
+    while pos != dst:
+        if pos in self.pieces: return False
+        pos += step
+    return True
+```
+
+* **Direction vector** reduces multi-dimensional move to linear scan.
+
+### 3.2 Check Detection
+
+```python
+def is_in_check(board, color):
+    king = ...
+    for src,p in board.pieces.items():
+        if p[0]==enemy and can_attack(src,king): return True
+    return False
+```
+
+* Manual enumeration of piece behaviors ensures accuracy and performance.
+
+### 3.3 Castling Simulation
+
+```python
+for square in path:
+    tmp = deepcopy(board)
+    move king to square
+    if is_in_check(tmp,color): return False
+```
+
+* Guarantees no intermediate square is attacked.
+
+### 3.4 Pin Check
+
+```python
+def move_respects_pin(piece,src,dst,board):
+    test = deepcopy(board)
+    apply test.move(piece,src,dst)
+    return not is_in_check(test,piece[0])
+```
+
+* Offloads complexity to isolated copy, preserving original state.
+
+### 3.5 Move Generation and Endgame
+
+```python
+moves = generate_legal_moves(board,player)
+if not moves:
+    if is_in_check(board,player): return 'checkmate'
+    else: return 'stalemate'
+```
+
+* Exhaustive yet performant for 8×8; future optimizations via incremental and cached attack tables.
+
+---
+
+## 4. Extensibility
+
+* **N-dimensional boards**: generalize cell IDs to tuples; adapt `path_clear`.
+* **DSL-defined pieces**: YAML specs drive `validator_dsl` generation.
+* **Runtime variant config**: user selects board size, piece specs, and alternation rules without redeploy.
+
+---
+
+## 5. Data Flow Diagram
+
+1. UI drag → sends `{ piece, src, dst }`.
+2. `app.py` → `is_move_legal` → `rules.py` → `validator_dsl.py`.
+3. `apply_move`, `AlternationEngine` updates turn.
+4. `check_rules` determines check/mate/pat.
+5. Response `{ valid, pieces, turn, message? }` returned.
+
+---
+
+This unified document provides both a concise architectural map and an in‑depth technical reference for anyone contributing to or extending the Baten Chess Engine.
