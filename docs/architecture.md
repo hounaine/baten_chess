@@ -205,6 +205,3 @@ if not moves:
 4. `check_rules` determines check/mate/pat.
 5. Response `{ valid, pieces, turn, message? }` returned.
 
----
-
-This unified document provides both a concise architectural map and an in‑depth technical reference for anyone contributing to or extending the Baten Chess Engine.
