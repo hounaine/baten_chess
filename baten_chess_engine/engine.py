@@ -2,7 +2,7 @@
 
 import sys
 from .board import Board
-from .validator_dsl import is_valid_move
+from .move_validator import is_valid_move
 
 def main():
     board = Board()

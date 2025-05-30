@@ -4,7 +4,7 @@ import yaml
 import os
 
 SPEC_DIR = 'dsl'
-OUT_FILE = 'baten_chess_engine/validator_dsl.py'
+OUT_FILE = os.path.join("..", "baten_chess_engine", "move_validator.py")
 
 # Pour chaque pièce, on va décrire son set de différences ou sa logique spéciale
 PIECE_SPECS = {
@@ -95,7 +95,7 @@ from baten_chess_engine.board import Board
 '''
 
 DISPATCH_HEADER = '''
-def is_valid_move_dsl(piece: str, src: int, dst: int, state: Board, last_move: Optional[Tuple[int,int]] = None) -> bool:
+def is_valid_move(piece: str, src: int, dst: int, state: Board, last_move: Optional[Tuple[int,int]] = None) -> bool:
     """
     Dispatch function for DSL-based validation.
     """

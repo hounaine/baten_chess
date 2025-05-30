@@ -1,4 +1,4 @@
-# Updated app.py
+# app.py
 
 from flask import Flask, render_template, request, jsonify
 import logging
@@ -11,7 +11,7 @@ from alternation_engine import (
 )
 
 from baten_chess_engine import error_messages
-from baten_chess_engine.validator_dsl import is_valid_move_dsl
+from baten_chess_engine.move_validator import is_valid_move
 
 # Règles de base
 from baten_chess_engine.rules import (
@@ -56,24 +56,53 @@ def index():
 @app.route("/validate", methods=["POST"])
 def validate():
     try:
-        data = request.get_json()
+        data  = request.get_json()
         piece = data.get("piece")
-        src = data.get("src")
-        dst = data.get("dst")
+        src   = data.get("src")
+        dst   = data.get("dst")
 
-        # Vérification JSON minimal
+        # —————————————————————————————
+        # Validation minimale du JSON
         if not piece or src is None or dst is None:
-            msg = "Requête invalide"
+            msg = "invalid_input"
+            return jsonify({
+                "valid":   False,
+                "pieces":  board.pieces,
+                "turn":    board.turn,
+                "message": msg
+            }), 400
+        # —————————————————————————————
+        
+        # 0) Si la partie est déjà terminée
+        if board.game_over:
             return jsonify({
                 "valid": False,
                 "pieces": board.pieces,
                 "turn": board.turn,
-                "message": msg
-            }), 400
+                "message": "game_over"
+            }), 200
+
+        # 0b) Checkmate / stalemate avant tout coup
+        if is_checkmate(board, board.turn):
+            board.game_over = True
+            return jsonify({
+                "valid": False,
+                "pieces": board.pieces,
+                "turn": board.turn,
+                "message": "checkmate"
+            }), 200
+        if is_stalemate(board, board.turn):
+            board.game_over = True
+            return jsonify({
+                "valid": False,
+                "pieces": board.pieces,
+                "turn": board.turn,
+                "message": "stalemate"
+            }), 200
 
         # 1) Mauvais tour
         if piece[0] != board.turn:
-            msg = errors["wrong_turn"].format(player=opposite(board.turn))
+            msg = f"Coup interdit : ce n'est pas au tour des {board.turn}."
             logging.info(msg)
             return jsonify({
                 "valid": False,
@@ -83,8 +112,8 @@ def validate():
             }), 200
 
         # 2) Cinématique pure + obstacle
-        if not is_valid_move_dsl(piece, src, dst, board, board.last_move) or not board.path_clear(src, dst):
-            msg = errors["invalid_move"]
+        if not is_valid_move(piece, src, dst, board, board.last_move) or not board.path_clear(src, dst):
+            msg = "invalid_move"
             return jsonify({
                 "valid": False,
                 "pieces": board.pieces,
@@ -96,7 +125,7 @@ def validate():
         test_board = copy.deepcopy(board)
         test_board.apply_move(piece, src, dst)
         if is_in_check(test_board, piece[0]):
-            msg = errors["in_check"]
+            msg = "in_check"
             return jsonify({
                 "valid": False,
                 "pieces": board.pieces,
@@ -107,7 +136,7 @@ def validate():
         # 4) Roque spécifique au roi
         if piece[1] == 'K' and abs(src - dst) == 2:
             if not castling_allowed(src, dst, board):
-                msg = errors["cannot_castle"]
+                msg = "cannot_castle"
                 return jsonify({
                     "valid": False,
                     "pieces": board.pieces,
@@ -118,7 +147,7 @@ def validate():
         # 5) Clouage (pin)
         tmp_board = copy.deepcopy(board)
         if not move_respects_pin(piece, src, dst, tmp_board):
-            msg = errors["pinned_piece"]
+            msg = "pinned_piece"
             return jsonify({
                 "valid": False,
                 "pieces": board.pieces,
@@ -160,7 +189,7 @@ def validate():
             "valid": False,
             "pieces": board.pieces,
             "turn": board.turn,
-            "message": "Erreur interne"
+            "message": "internal_error"
         }), 500
 
 

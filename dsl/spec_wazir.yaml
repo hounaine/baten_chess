@@ -1,0 +1,20 @@
+# dsl/spec_wazir.yaml
+name: Wazir
+code: W
+vectors:
+  - [ 1,  0]  # droite
+  - [-1,  0]  # gauche
+  - [ 0,  1]  # haut
+  - [ 0, -1]  # bas
+sliding: false
+drop: false
+# promotion en King (facultatif ; supprimez ou ajustez si vous n’en voulez pas)
+promotion:
+  - name: King
+    code: K
+    vectors:
+      - [ 1,  0]
+      - [-1,  0]
+      - [ 0,  1]
+      - [ 0, -1]
+    sliding: false

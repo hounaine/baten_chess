@@ -1,0 +1,11 @@
+# dsl/spec_ferz.yaml
+name: Ferz
+code: Fz
+vectors:
+  - [ 1,  1]  # diagonale haut-droite
+  - [ 1, -1]  # diagonale bas-droite
+  - [-1,  1]  # diagonale haut-gauche
+  - [-1, -1]  # diagonale bas-gauche
+sliding: false
+drop: false
+# pas de promotion par défaut
