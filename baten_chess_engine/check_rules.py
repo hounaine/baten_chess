@@ -7,7 +7,7 @@ from typing import List, Tuple
 import copy
 
 from baten_chess_engine.board import Board
-from baten_chess_engine.validator_dsl import is_valid_move_dsl
+from baten_chess_engine.move_validator import is_valid_move
 from baten_chess_engine.rules import is_in_check, move_respects_pin, castling_allowed, opposite
 
 # A move is represented as a tuple: (piece: str, src: int, dst: int)
@@ -29,7 +29,7 @@ def generate_legal_moves(board: Board, player: str) -> List[Move]:
             if src == dst:
                 continue
             # 1) Pure movement validation
-            if not is_valid_move_dsl(piece, src, dst, board, board.last_move):
+            if not is_valid_move(piece, src, dst, board, board.last_move):
                 continue
             # 2) Path clearance
             if not board.path_clear(src, dst):

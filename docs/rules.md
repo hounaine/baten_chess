@@ -41,8 +41,8 @@ Ensures you cannot move onto a friendly piece.
 `is_move_legal` calls into DSL validators:
 
 ```python
-from batter_chess_engine.validator_dsl import is_valid_move_dsl
-if not is_valid_move_dsl(piece, src, dst, board, last_move):
+from batter_chess_engine.validator_dsl import is_valid_move
+if not is_valid_move(piece, src, dst, board, last_move):
     return False
 ```
 
