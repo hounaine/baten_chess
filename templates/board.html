@@ -5,32 +5,74 @@
     <meta charset="UTF-8">
     <title>Chess Board</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Centrage du container et cadre autour de l’échiquier */
+        #board-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 40px auto;
+            width: max-content;
+            border: 2px solid #333;
+            padding: 20px;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+
+        #controls {
+            margin-bottom: 15px;
+        }
+
+        #controls button {
+            margin: 0 5px;
+            padding: 6px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .dragover {
+            outline: 2px dashed #666;
+        }
+    </style>
 </head>
 
 <body>
-    <table id="chessboard">
-        {% for L in range(8, 0, -1) %}
-        <tr>
-            {% for C in range(1, 9) %}
-            <td data-cell="{{ (C * 10) + L }}" draggable="true" ondragstart="dragStart(event)"
-                ondragover="dragOver(event)" ondrop="drop(event)"></td>
+    <div id="board-container">
+        <!-- Bouton New Game -->
+        <div id="controls">
+            <button id="new-game">New Game</button>
+        </div>
+
+        <!-- Échiquier -->
+        <table id="chessboard">
+            {% for rank in range(8, 0, -1) %}
+            <tr>
+                {% for file in range(1, 9) %}
+                <td data-cell="{{ (file * 10) + rank }}" draggable="true" ondragstart="dragStart(event)"
+                    ondragover="dragOver(event)" ondrop="drop(event)">
+                </td>
+                {% endfor %}
+            </tr>
             {% endfor %}
-        </tr>
-        {% endfor %}
-    </table>
+        </table>
+
+        <!-- Affichage dernier coup + liste des coups -->
+        <div id="last-move" style="margin-top: 15px; font-weight: bold;"></div>
+        <div id="move-list" style="margin-top: 20px; font-family: monospace;"></div>
+    </div>
 
     <script type="text/javascript">
-        // Récupération des pièces passées par Flask
+        // 0) État initial du serveur
         const piecesJson = '{{ pieces | tojson | safe }}';
         const chessPieces = JSON.parse(piecesJson);
 
-        // Mappage code→symbole Unicode
+        // 1) Unicode pour les pièces
         const unicode = {
             'wK': '♔', 'wQ': '♕', 'wR': '♖', 'wB': '♗', 'wN': '♘', 'wP': '♙',
             'bK': '♚', 'bQ': '♛', 'bR': '♜', 'bB': '♝', 'bN': '♞', 'bP': '♟'
         };
 
-        // Affichage initial des pièces
+        // 2) Rendu initial
         function renderBoard() {
             document.querySelectorAll('#chessboard td').forEach(td => {
                 const cell = td.dataset.cell;
@@ -39,43 +81,104 @@
         }
         renderBoard();
 
-        // Drag & Drop handlers
+        // 3) Algébrique
+        const FILES = ['', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+        function toAlgebraic(cell) {
+            const f = Math.floor(cell / 10), r = cell % 10;
+            return FILES[f] + r;
+        }
+
+        // 4) Drag & Drop
         function dragStart(evt) {
-            const src = evt.target.dataset.cell;
-            if (!chessPieces[src]) {
-                evt.preventDefault();
-                return;
-            }
+            const src = parseInt(evt.target.dataset.cell);
+            if (!chessPieces[src]) { evt.preventDefault(); return; }
             evt.dataTransfer.setData('text/plain', src);
         }
         function dragOver(evt) {
-            evt.preventDefault();
-            evt.currentTarget.classList.add('dragover');
+            evt.preventDefault(); evt.currentTarget.classList.add('dragover');
         }
         function drop(evt) {
             evt.preventDefault();
-            const dst = evt.currentTarget.dataset.cell;
-            const src = evt.dataTransfer.getData('text/plain');
+            const dst = parseInt(evt.currentTarget.dataset.cell);
+            const src = parseInt(evt.dataTransfer.getData('text/plain'));
             evt.currentTarget.classList.remove('dragover');
-
-            // Validation côté serveur
-            fetch('/validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ piece: chessPieces[src], src: parseInt(src), dst: parseInt(dst) })
-            })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.valid) {
-                        // Mise à jour locale
-                        chessPieces[dst] = chessPieces[src];
-                        delete chessPieces[src];
-                        renderBoard();
-                    } else {
-                        alert('Coup illégal !');
-                    }
-                });
+            postMove(src, dst);
         }
+
+        // 5) Historique
+        const moveHistory = [];
+
+        // 6) Appel / validate et mise à jour
+        async function postMove(src, dst) {
+            try {
+                console.log("→ Envoi au serveur /validate :", { piece: chessPieces[src], src, dst });
+                const resp = await fetch('/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ piece: chessPieces[src], src, dst })
+                });
+                const data = await resp.json();
+                console.log("← Réponse /validate :", data);
+
+                if (data.valid) {
+                    // On remplace tout le plateau côté client par data.pieces
+                    Object.keys(chessPieces).forEach(k => delete chessPieces[k]);
+                    Object.assign(chessPieces, data.pieces);
+                    renderBoard();
+
+                    // On affiche la notation (elle inclut déjà + ou #)
+                    document.getElementById('last-move').textContent = data.notation;
+
+                    // On met à jour et affiche l’historique
+                    moveHistory.push({ notation: data.notation, state: { ...chessPieces } });
+                    renderMoveList();
+                } else {
+                    alert(data.message || 'Coup illégal !');
+                }
+            } catch (err) {
+                console.error('postMove error:', err);
+            }
+        }
+
+
+        function renderMoveList() {
+            const container = document.getElementById('move-list');
+            container.innerHTML = '';
+            for (let i = 0; i < moveHistory.length; i += 2) {
+                const num = (i / 2) + 1;
+                const w = moveHistory[i], b = moveHistory[i + 1];
+                const row = document.createElement('div');
+                row.innerHTML = `<strong>${num}.</strong>
+                    <span data-idx="${i}" class="move-entry">${w.notation}</span>
+                    ${b ? ` / <span data-idx="${i + 1}" class="move-entry">${b.notation}</span>` : ''}`;
+                container.appendChild(row);
+            }
+            container.querySelectorAll('.move-entry').forEach(el => {
+                el.style.cursor = 'pointer';
+                el.onclick = () => {
+                    const idx = +el.dataset.idx;
+                    const snap = moveHistory[idx].state;
+                    // restaurer plateau
+                    Object.keys(chessPieces).forEach(k => delete chessPieces[k]);
+                    Object.assign(chessPieces, snap);
+                    renderBoard();
+                    document.getElementById('last-move').textContent = moveHistory[idx].notation;
+                };
+            });
+        }
+
+        // 8) New Game → /reset
+        document.getElementById('new-game').onclick = async () => {
+            const r = await fetch('/reset');
+            const d = await r.json();
+            Object.keys(chessPieces).forEach(k => delete chessPieces[k]);
+            Object.assign(chessPieces, d.pieces);
+            renderBoard();
+            moveHistory.length = 0;
+            document.getElementById('move-list').innerHTML = '';
+            document.getElementById('last-move').textContent = '';
+            document.querySelectorAll('.dragover').forEach(td => td.classList.remove('dragover'));
+        };
     </script>
 </body>
 

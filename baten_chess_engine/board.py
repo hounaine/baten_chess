@@ -15,6 +15,7 @@ class Board:
     last_move: Optional[Tuple[int, int]] = None
     last_move_was_capture: bool = False
     history: List[Tuple[FrozenSet[Tuple[int,str]], Tuple[Tuple[str,bool],...], Optional[int], str]] = field(default_factory=list)
+    game_over: bool = False
 
     def record_state(self):
         pieces_fs = frozenset(self.pieces.items())
@@ -41,6 +42,7 @@ class Board:
         self.turn = 'w'
         self.last_move = None
         self.last_move_was_capture = False
+        self.game_over = False
 
     def is_empty(self, cell: int) -> bool:
         return cell not in self.pieces

@@ -56,141 +56,84 @@ def index():
 @app.route("/validate", methods=["POST"])
 def validate():
     try:
-        data  = request.get_json()
+        data = request.get_json()
         piece = data.get("piece")
         src   = data.get("src")
         dst   = data.get("dst")
 
-        # —————————————————————————————
-        # Validation minimale du JSON
+        # JSON mal formé ?
         if not piece or src is None or dst is None:
-            msg = "invalid_input"
-            return jsonify({
-                "valid":   False,
-                "pieces":  board.pieces,
-                "turn":    board.turn,
-                "message": msg
-            }), 400
-        # —————————————————————————————
-        
-        # 0) Si la partie est déjà terminée
-        if board.game_over:
-            return jsonify({
-                "valid": False,
-                "pieces": board.pieces,
-                "turn": board.turn,
-                "message": "game_over"
-            }), 200
+            return jsonify({"valid": False, "message": "invalid_input"}), 400
 
-        # 0b) Checkmate / stalemate avant tout coup
-        if is_checkmate(board, board.turn):
-            board.game_over = True
-            return jsonify({
-                "valid": False,
-                "pieces": board.pieces,
-                "turn": board.turn,
-                "message": "checkmate"
-            }), 200
-        if is_stalemate(board, board.turn):
-            board.game_over = True
-            return jsonify({
-                "valid": False,
-                "pieces": board.pieces,
-                "turn": board.turn,
-                "message": "stalemate"
-            }), 200
+        # Si la partie est déjà finie
+        if getattr(board, "game_over", False):
+            return jsonify({"valid": False, "message": "game_over", "game_over": True}), 200
 
-        # 1) Mauvais tour
+        # Mauvais tour ?
         if piece[0] != board.turn:
-            msg = f"Coup interdit : ce n'est pas au tour des {board.turn}."
-            logging.info(msg)
-            return jsonify({
-                "valid": False,
-                "pieces": board.pieces,
-                "turn": board.turn,
-                "message": msg
-            }), 200
+            return jsonify({"valid": False, "message": f"Not {board.turn}'s turn"}), 200
 
-        # 2) Cinématique pure + obstacle
+        # 1) Cinématique de base + obstacle
         if not is_valid_move(piece, src, dst, board, board.last_move) or not board.path_clear(src, dst):
-            msg = "invalid_move"
-            return jsonify({
-                "valid": False,
-                "pieces": board.pieces,
-                "turn": board.turn,
-                "message": msg
-            }), 200
+            return jsonify({"valid": False, "message": "invalid_move"}), 200
 
-        # 3) Sécurité du roi (auto-échec)
+        # 2) Auto-échec : on simule le coup
         test_board = copy.deepcopy(board)
         test_board.apply_move(piece, src, dst)
         if is_in_check(test_board, piece[0]):
-            msg = "in_check"
-            return jsonify({
-                "valid": False,
-                "pieces": board.pieces,
-                "turn": board.turn,
-                "message": msg
-            }), 200
+            return jsonify({"valid": False, "message": "in_check"}), 200
 
-        # 4) Roque spécifique au roi
+        # 3) Roque
         if piece[1] == 'K' and abs(src - dst) == 2:
             if not castling_allowed(src, dst, board):
-                msg = "cannot_castle"
-                return jsonify({
-                    "valid": False,
-                    "pieces": board.pieces,
-                    "turn": board.turn,
-                    "message": msg
-                }), 200
+                return jsonify({"valid": False, "message": "cannot_castle"}), 200
 
-        # 5) Clouage (pin)
-        tmp_board = copy.deepcopy(board)
-        if not move_respects_pin(piece, src, dst, tmp_board):
-            msg = "pinned_piece"
-            return jsonify({
-                "valid": False,
-                "pieces": board.pieces,
-                "turn": board.turn,
-                "message": msg
-            }), 200
+        # 4) Clouage
+        if not move_respects_pin(piece, src, dst, copy.deepcopy(board)):
+            return jsonify({"valid": False, "message": "pinned_piece"}), 200
 
-        # Si tout est OK, on applique le coup
+        # --- à partir d’ici : coup légal, on l’applique ---
         board.apply_move(piece, src, dst)
-        ctx = MoveContext(move=(piece, src, dst), is_capture=board.last_move_was_capture)
-        engine.register_move(ctx)
-        board.turn = engine.get_current_turn()
+        board.turn = opposite(board.turn)  # ou engine si tu préfères
 
-        # 6) Détection d’échec / mat / pat
-        opp = board.turn
-        message = None
-        if is_in_check(board, opp):
-            # premier niveau : simple échec
-            message = errors["check"].format(player=opp)
-            # vérification du mat
-            legal = generate_legal_moves(board, opp)
-            if not legal:
-                message = errors["checkmate"].format(player=opp)
+        # Prépare la notation et les flags
+        flag_check = is_in_check(board, board.turn)
+        legal_moves = generate_legal_moves(board, board.turn)
+        flag_mate = flag_check and not legal_moves
+        if flag_mate:
+            board.game_over = True
+            suffix = "#"
+            message = f"checkmate {board.turn}"
+        elif flag_check:
+            suffix = "+"
+            message = f"check {board.turn}"
+        else:
+            suffix = ""
+            message = None
 
-        # Réponse finale
-        response = {
-            "valid": True,
-            "pieces": board.pieces,
-            "turn": board.turn
+        # Construis la notation (ex: "Qh4-e6#")
+        # Ici on suppose que data["notation"] était juste "Qh4-e6"
+        move_notation = f"{piece[1]}{src}-{dst}{suffix}"
+
+        # Et on renvoie tout
+        resp = {
+            "valid":        True,
+            "notation":     move_notation,
+            "is_check":     flag_check,
+            "is_checkmate": flag_mate,
+            "pieces":       board.pieces,
+            "turn":         board.turn,
+            "game_over":    getattr(board, "game_over", False),
         }
         if message:
-            response["message"] = message
+            resp["message"] = message
 
-        return jsonify(response), 200
+        return jsonify(resp), 200
 
     except Exception as e:
-        logging.error(f"Error during move validation: {e}")
-        return jsonify({
-            "valid": False,
-            "pieces": board.pieces,
-            "turn": board.turn,
-            "message": "internal_error"
-        }), 500
+        logging.exception("Erreur dans /validate")
+        return jsonify({"valid": False, "message": "internal_error"}), 500
+
 
 
 @app.route("/reset", methods=["GET","POST"])
