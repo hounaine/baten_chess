@@ -1,20 +1,36 @@
-# dsl/spec_wazir.yaml
-name: Wazir
-code: W
-vectors:
-  - [ 1,  0]  # droite
-  - [-1,  0]  # gauche
-  - [ 0,  1]  # haut
-  - [ 0, -1]  # bas
-sliding: false
-drop: false
-# promotion en King (facultatif ; supprimez ou ajustez si vous n’en voulez pas)
-promotion:
-  - name: King
-    code: K
-    vectors:
-      - [ 1,  0]
-      - [-1,  0]
-      - [ 0,  1]
-      - [ 0, -1]
-    sliding: false
+# spec_wazir.yaml
+piece: wazir
+piece_type: 'W'
+slide: false
+
+state: Jeu
+fields:
+  - position
+  - castling_rights
+  - en_passant_target
+  - turn
+  - history
+
+guards:
+  - name: ColorGuard
+    code: "piece[1] == 'W' and color == state.turn"
+  - name: WazirMoveGuard
+    code: "(abs(dc) == 1 and dl == 0) or (dc == 0 and abs(dl) == 1)"
+  - name: WazirCaptureGuard
+    code: "(state.is_empty(dst) or state.is_enemy(dst, color))"
+
+transitions:
+  - name: Move
+    when:
+      - "piece[1] == 'W'"
+      - "color == state.turn"
+      - "c1, l1 = divmod(src, 10)"
+      - "c2, l2 = divmod(dst, 10)"
+      - "dc = c2 - c1"
+      - "dl = l2 - l1"
+    guards:
+      - ColorGuard
+      - WazirMoveGuard
+      - WazirCaptureGuard
+    do:
+      - "state.apply_move(piece, src, dst)"

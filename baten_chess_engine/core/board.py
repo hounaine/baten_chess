@@ -1,4 +1,4 @@
-# Updated baten_chess_engine/board.py
+# Updated baten_chess_engine/core/board.py
 
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List, Tuple, FrozenSet
@@ -83,7 +83,12 @@ class Board:
                 del self.pieces[lm_dst]
         if dst in self.pieces and not was_capture:
             del self.pieces[dst]
-        self.pieces[dst] = piece
-        del self.pieces[src]
+        # promotion automatique en dame si on atteint la dernière rangée
+        rank = dst % 10
+        if piece[1] == "P" and (rank == 8 or rank == 1):
+            self.pieces[dst] = piece[0] + "Q"
+        else:
+            self.pieces[dst] = piece  # Toujours placer la pièce sur dst
+        self.pieces.pop(src, None)
         self.last_move_was_capture = was_capture
         self.last_move = (src, dst)

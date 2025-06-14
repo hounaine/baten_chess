@@ -1,0 +1,75 @@
+# dsl/rules_brainstorm.yaml
+# Catalogue descriptif (non-exécutable) des grands « patterns » de mouvements et de règles
+movement_archetypes:
+  sliding:
+    description: "Pièces qui parcourent plusieurs cases en ligne droite (rook, bishop, queen, dragon…)."
+    params:
+      - max_distance: integer  # nombre de cases max (ou infini pour n×p)
+      - directions:
+          - orthogonal
+          - diagonal
+  leaper:
+    description: "Pièces qui sautent à une case cible sans vérification de path_clear (knight, wazir, camel…)."
+    params:
+      - deltas: list of (dx,dy)
+  rider:
+    description: "Combinaison leaper + sliding (pierce, fairy rider…)."
+  rider_and_leaper:
+    description: "Union de deux sets de deltas, e.g. Dragon = bishop ∪ knight ∪ wazir."
+  fixed_range:
+    description: "Pièces qui ne vont qu’à distance fixe, p.ex. nightrider (itératif)."
+    params:
+      - delta_cycle: list of (dx,dy)
+special_moves:
+  castling:
+    description: "Roque, déplace roi de 2 cases + tour adjacente."
+    guards:
+      - castling_rights
+      - path_empty_between
+      - squares_not_attacked
+  en_passant:
+    description: "Capture spéciale du pion sur case cible après double-pas."
+    guards:
+      - ep_target_match
+      - last_move_was_double_pawn
+  promotion:
+    description: "Transformation du pion en atteignant la dernière rangée."
+    params:
+      - promotion_rank: integer
+      - choices: list of piece_types
+game_guards:
+  color:
+  pin:
+  check:
+  checkmate:
+  stalemate:
+  repetition:
+  fifty_move:
+  insufficient_material:
+phases:
+  setup:
+    description: "Placement initial (classique, Fischer 960, Sittuyin…)."
+  opening:
+  middlegame:
+  endgame:
+extensions:
+  board_shapes:
+    - rectangular (n×p)
+    - cylindrical (wrap horizontal)
+    - toroidal (wrap both axes)
+    - 4-player (160 cases, zones d’entrée)
+  dimensions:
+    - 2D
+    - 3D (Raumschach etc.)
+  time_control:
+    - blitz
+    - correspondence
+  variants:
+    - atomic
+    - crazyhouse
+    - antichess
+    - ...
+  piece_types:
+    - standard (king, queen, rook, bishop, knight, pawn)
+    - fairy (amazon, dragon, archbishop, chancellor, etc.)
+    - custom (user-defined pieces with specific rules)

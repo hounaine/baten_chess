@@ -1,0 +1,48 @@
+--- a/baten_chess_engine/core/move_validator.py
++++ b/baten_chess_engine/core/move_validator.py
+@@
+ from typing import Optional, Tuple
+-from baten_chess_engine.core.board import Board
++from baten_chess_engine.core.board import Board
++
++# décalages pour pièce féerique “W” (wazir) : une case orthogonale
++FAIRY_DELTAS = {
++    'W': [(1,0),(-1,0),(0,1),(0,-1)],
++}
+@@
+-def is_valid_pawn_move(piece: str, src: int, dst: int, state: Board) -> bool:
++def is_valid_pawn_move(piece: str,
++                       src: int,
++                       dst: int,
++                       state: Board,
++                       last_move: Optional[Tuple[int,int]] = None) -> bool:
+@@
+-    # captures
+-    if abs(dc)==1 and ((color=='w' and dl==1) or (color=='b' and dl==-1)):
+-        if state.is_enemy(dst,color) or dst==state.en_passant_target:
+-            return True
+-        return False
++    # captures & en passant
++    if abs(dc)==1 and ((color=='w' and dl==1) or (color=='b' and dl==-1)):
++        # 1) capture normale
++        if state.is_enemy(dst, color):
++            return True
++        # 2) prise en passant
++        if last_move and dst == state.en_passant_target:
++            lm_src, lm_dst = last_move
++            # dernier coup = double-pas de pion ?
++            if abs(lm_dst - lm_src) == 20 and state.pieces.get(lm_dst, "")[1] == "P":
++                return True
++        return False
+@@
+-def is_valid_move(piece: str, src: int, dst: int, state: Board, last_move: Optional[Tuple[int,int]] = None) -> bool:
++def is_valid_move(piece: str,
++                  src: int,
++                  dst: int,
++                  state: Board,
++                  last_move: Optional[Tuple[int,int]] = None) -> bool:
+@@
+-    if ptype == 'P':
+-        return is_valid_pawn_move(piece, src, dst, state)
++    if ptype == 'P':
++        return is_valid_pawn_move(piece, src, dst, state, last_move)

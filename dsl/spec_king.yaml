@@ -1,21 +1,39 @@
 # dsl/spec_king.yaml
+piece: King
+piece_type: 'K'
+slide: false
 
-state: Jeu
-fields:
-  - position
-  - castling_rights
-  - en_passant_target
-  - turn
-  - history
+guards:
+  - name: ColorGuard
+    code: "piece[1] == 'K' and color == state.turn"
+  - name: KingMoveGuard
+    code: "diff in {1,9,10,11}"
+  - name: KingCaptureGuard
+    code: "(state.is_empty(dst) or state.is_enemy(dst, color))"
+  - name: CastlingGuard
+    code: "castling_allowed(src, dst, state)"
 
 transitions:
   - name: Move
-    piece_type: 'K'
     when:
-      - "piece[1] == 'K'"                                   # c’est un roi
-      - "piece[0] == state.turn"
+      - "piece[1] == 'K'"
+      - "color == state.turn"
       - "diff = abs(src - dst)"
-      - "diff in {1,9,10,11} or diff == 2"                  # 2 = roque
-      # (plus tard : vérif. roque, cases non attaquées…)
     do:
       - "state.apply_move(piece, src, dst)"
+    guards:
+      - ColorGuard
+      - KingMoveGuard
+      - KingCaptureGuard
+
+  - name: Castling
+    when:
+      - "piece[1] == 'K'"
+      - "color == state.turn"
+      - "diff = abs(src - dst)"
+      - "diff == 20"
+    do:
+      - "state.apply_castle(piece, src, dst)"
+    guards:
+      - ColorGuard
+      - CastlingGuard

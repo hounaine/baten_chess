@@ -1,12 +1,12 @@
 import pytest
 
-from baten_chess_engine.board import Board
-from baten_chess_engine.check_rules import (
+from baten_chess_engine.core.board import Board
+from baten_chess_engine.core.check_rules import (
     generate_legal_moves,
     is_checkmate,
     is_stalemate
 )
-from baten_chess_engine.move_validator import is_valid_move
+from baten_chess_engine.core.move_validator import is_valid_move
 
 @pytest.fixture
 def board():
@@ -77,7 +77,7 @@ def test_en_passant():
 def test_fairy_piece_wazir():
     # Définissez un wazir (mvt d'une case orthogonale)
     # On ajoute temporairement Delta pour W:
-    from baten_chess_engine.move_validator import FAIRY_DELTAS
+    from baten_chess_engine.core.move_validator import FAIRY_DELTAS
     FAIRY_DELTAS['W'] = [(1,0),(-1,0),(0,1),(0,-1)]
     fen = "8/8/8/3W4/8/8/8/4k3 w - - 0 1"
     b = Board(); b.load_fen(fen)

@@ -1,22 +1,40 @@
 # dsl/spec_queen.yaml
+piece: Queen
+piece_type: 'Q'
+slide: true
 
-state: Jeu
-fields:
-  - position
-  - castling_rights
-  - en_passant_target
-  - turn
-  - history
+guards:
+  - name: ColorGuard
+    code: "piece[1] == 'Q' and color == state.turn"
+  - name: QueenMoveGuard
+    code: "(dc == 0 or dl == 0 or abs(dc) == abs(dl))"
+  - name: PathClearGuard
+    code: >-
+      all(
+        state.is_empty((c1 + step_c*t)*10 + (l1 + step_l*t))
+        for t in range(1, dist)
+      )
+  - name: QueenCaptureGuard
+    code: "(state.is_empty(dst) or state.is_enemy(dst, color))"
 
 transitions:
   - name: Move
-    piece_type: 'Q'
     when:
-      - "piece[1] == 'Q'"                                   # c’est une reine
-      - "piece[0] == state.turn"                            # bonne couleur
-      - "diff = abs(src - dst)"
-      - "diff in ROOK_DIFFS or diff in BISHOP_DIFFS"         # union Tour + Fou
-      - "state.path_clear(src, dst)"                        # pas d’obstacle
-      - "state.is_empty(dst) or state.is_enemy(dst, piece[0])"
+      - "piece[1] == 'Q'"
+      - "color == state.turn"
+      - "c1, l1 = divmod(src,10)"
+      - "c2, l2 = divmod(dst,10)"
+      - "dc = c2 - c1"
+      - "dl = l2 - l1"
+      - "dist = max(abs(dc), abs(dl))"
+      - "step_c = (dc > 0) - (dc < 0)"
+      - "step_l = (dl > 0) - (dl < 0)"
     do:
       - "state.apply_move(piece, src, dst)"
+    guards:
+      - ColorGuard
+      - QueenMoveGuard
+      - PathClearGuard
+      - QueenCaptureGuard
+# This YAML file defines the rules and behaviors for the Queen piece in a chess-like game.
+# It specifies the movement capabilities, conditions for valid moves, and the necessary guards to ensure the rules are followed.

@@ -1,22 +1,38 @@
 # dsl/spec_bishop.yaml
+piece: Bishop
+piece_type: 'B'
+slide: true
 
-state: Jeu
-fields:
-  - position
-  - castling_rights
-  - en_passant_target
-  - turn
-  - history
+guards:
+  - name: ColorGuard
+    code: "piece[1] == 'B' and color == state.turn"
+  - name: BishopMoveGuard
+    code: "abs(c2 - c1) == abs(l2 - l1)"
+  - name: PathClearGuard
+    code: >-
+      all(
+        state.is_empty((c1 + step_c*t)*10 + (l1 + step_l*t))
+        for t in range(1, dist)
+      )
+  - name: BishopCaptureGuard
+    code: "(state.is_empty(dst) or state.is_enemy(dst, color))"
 
 transitions:
   - name: Move
-    piece_type: 'B'
     when:
-      - "piece[1] == 'B'"                              # c’est un fou
-      - "piece[0] == state.turn"                       # bonne couleur au trait
-      - "diff = abs(src - dst)"                        # différence brute
-      - "diff in {9,18,27,36,45,54,63, 11,22,33,44,55,66,77}"  # diagonales
-      - "state.path_clear(src, dst)"                   # trajectoire libre
-      - "state.is_empty(dst) or state.is_enemy(dst, piece[0])"
+      - "piece[1] == 'B'"
+      - "color == state.turn"
+      - "c1, l1 = divmod(src,10)"
+      - "c2, l2 = divmod(dst,10)"
+      - "dc = c2 - c1"
+      - "dl = l2 - l1"
+      - "dist = abs(dc)"
+      - "step_c = (dc > 0) - (dc < 0)"
+      - "step_l = (dl > 0) - (dl < 0)"
     do:
       - "state.apply_move(piece, src, dst)"
+    guards:
+      - ColorGuard
+      - BishopMoveGuard
+      - PathClearGuard
+      - BishopCaptureGuard

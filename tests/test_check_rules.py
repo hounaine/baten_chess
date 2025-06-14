@@ -3,9 +3,10 @@
 import copy
 import pytest
 
-from baten_chess_engine.check_rules import is_checkmate, is_stalemate, generate_legal_moves
-from baten_chess_engine.board import Board
-from baten_chess_engine.rules import is_in_check
+from baten_chess_engine.core.check_rules import is_checkmate, is_stalemate, generate_legal_moves
+
+from baten_chess_engine.core.board import Board
+from baten_chess_engine.core.rules import is_in_check
 
 def test_initial_position_has_moves():
     board = Board()

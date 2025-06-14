@@ -6,9 +6,9 @@ Module dedicated to detection of check and checkmate conditions.
 from typing import List, Tuple
 import copy
 
-from baten_chess_engine.board import Board
-from baten_chess_engine.move_validator import is_valid_move
-from baten_chess_engine.rules import is_in_check, move_respects_pin, castling_allowed, opposite
+from baten_chess_engine.core.board import Board
+from baten_chess_engine.core.move_validator import is_valid_move
+from baten_chess_engine.core.rules import is_in_check, move_respects_pin, castling_allowed, opposite
 
 # A move is represented as a tuple: (piece: str, src: int, dst: int)
 Move = Tuple[str, int, int]

@@ -1,20 +1,25 @@
-state: Jeu
-fields:
-  - position
-  - castling_rights
-  - en_passant_target
-  - turn
-  - history
+# dsl/spec_knight.yaml
+piece: Knight
+slide: false
+
+guards:
+  - name: ColorGuard
+    code: "piece[1] == 'N' and color == state.turn"
+  - name: KnightMoveGuard
+    code: "sorted([abs(c1-c2), abs(l1-l2)]) == [1,2]"
+  - name: KnightCaptureGuard
+    code: "(state.is_empty(dst) or state.is_enemy(dst, color))"
 
 transitions:
   - name: Move
-    piece_type: 'N'
     when:
-      - "piece[1] == 'N'"  
-      - "piece[0] == state.turn"
-      - "let (c1, l1) = (src//10, src%10)"
-      - "let (c2, l2) = (dst//10, dst%10)"
-      - "(abs(c1-c2), abs(l1-l2)) in {(1,2),(2,1)}"
-      - "state.is_empty(dst) or state.is_enemy(dst, piece[0])"
+      - "piece[1] == 'N'"
+      - "color == state.turn"
+      - "c1, l1 = divmod(src,10)"
+      - "c2, l2 = divmod(dst,10)"
     do:
       - "state.apply_move(piece, src, dst)"
+    guards:
+      - ColorGuard
+      - KnightMoveGuard
+      - KnightCaptureGuard

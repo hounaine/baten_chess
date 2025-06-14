@@ -1,8 +1,8 @@
 import copy
 import pytest
 
-from baten_chess_engine.board import Board
-from baten_chess_engine.rules import is_in_check, castling_allowed, move_respects_pin
+from baten_chess_engine.core.board import Board
+from baten_chess_engine.core.rules import is_in_check, castling_allowed, move_respects_pin
 
 def make_board(pieces):
     b = Board()

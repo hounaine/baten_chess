@@ -1,8 +1,8 @@
 # baten_chess_engine/engine.py
 
 import sys
-from .board import Board
-from .move_validator import is_valid_move
+from .core.board import Board
+from .core.move_validator import is_valid_move
 
 def main():
     board = Board()

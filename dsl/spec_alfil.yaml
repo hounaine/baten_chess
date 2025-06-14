@@ -1,0 +1,25 @@
+# dsl/spec_alfil.yaml
+piece: Alfil
+piece_type: 'A'
+slide: false
+
+guards:
+  - name: ColorGuard
+    code: "piece[1]=='A' and color==state.turn"
+  - name: AlfilGuard
+    code: "abs(dc)==2 and abs(dl)==2"
+
+transitions:
+  - name: Move
+    when:
+      - "piece[1]=='A'"
+      - "color==state.turn"
+      - "c1,l1 = divmod(src,10)"
+      - "c2,l2 = divmod(dst,10)"
+      - "dc = c2 - c1"
+      - "dl = l2 - l1"
+    do:
+      - "state.apply_move(piece, src, dst)"
+    guards:
+      - ColorGuard
+      - AlfilGuard

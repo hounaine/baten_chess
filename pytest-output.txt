@@ -1,0 +1,88 @@
+C:\Users\dell\Documents\baten_chess>pytest -q
+......FF.....F..F.F...............                                                                                                                                                                                                                                                 [100%]
+======================================================================================================================================= FAILURES ========================================================================================================================================
+_____________________________________________________________________________________________________________________________ test_illegal_move_self_check ______________________________________________________________________________________________________________________________
+
+client = <FlaskClient <Flask 'chess_app'>>
+
+    def test_illegal_move_self_check(client):
+        # Placer un scénario échec et tenter un coup qui laisse en échec
+        # Roi blanc e1 (51), tour noire e8 (58)
+        board.pieces = {51:'wK', 58:'bR'}
+        board.turn = 'w'
+        rv = post_move(client, 'wK', 51, 52)  # roi tente f1, attaqué
+        data = rv.get_json()
+        assert not data['valid']
+>       assert "in_check" in data['message']
+E       AssertionError: assert 'in_check' in 'pinned_piece'
+
+tests\test_app.py:49: AssertionError
+_________________________________________________________________________________________________________________________ test_checkmate_message_and_game_over __________________________________________________________________________________________________________________________
+
+client = <FlaskClient <Flask 'chess_app'>>
+
+    def test_checkmate_message_and_game_over(client):
+        # Mat simple : roi noir a8 (18), dame blanche b7 (27), roi blanc c6 (36)
+        board.pieces = {18:'bK',27:'wQ',36:'wK'}
+        board.turn = 'b'
+        board.last_move = None
+        rv = post_move(client, 'bK', 18, 19)  # n’importe quel coup illégal
+        data = rv.get_json()
+        # Après une tentative, game_over doit être True
+>       assert board.game_over
+E       AssertionError: assert False
+E        +  where False = Board(pieces={27: 'wQ', 36: 'wK'}, castling_rights={'K': True, 'Q': True, 'k': True, 'q': True}, en_passant_target=None, turn='w', last_move=(18, 19), last_move_was_capture=False, history=[], game_over=False).game_over
+
+tests\test_app.py:59: AssertionError
+_________________________________________________________________________________________________________________________________ test_checkmate_simple _________________________________________________________________________________________________________________________________
+
+    def test_checkmate_simple():
+        # Mat en 1 : position du "Fool’s mate"
+        fen = "rnb1kbnr/pppp1ppp/8/4p3/8/4P3/PPPP1PPP/RNB1KBNR w KQkq - 0 2"
+        b = Board(); b.load_fen(fen)
+        # 2. Qh5# (d1→h5)
+        assert is_valid_move('wQ', 41, 85, b, b.last_move)
+        b.apply_move('wQ', 41, 85)
+>       assert is_checkmate(b, 'b')
+E       AssertionError: assert False
+E        +  where False = is_checkmate(Board(pieces={18: 'bR', 28: 'bN', 38: 'bB', 58: 'bK', 68: 'bB', 78: 'bN', 88: 'bR', 17: 'bP', 27: 'bP', 37: 'bP', 47: ... True}, en_passant_target=None, turn='w', last_move=(41, 85), last_move_was_capture=False, history=[], game_over=False), 'b')
+
+tests\test_full_rules.py:35: AssertionError
+_____________________________________________________________________________________________________________________________________ test_castling _____________________________________________________________________________________________________________________________________
+
+    def test_castling():
+        # Petit roque blanc autorisé
+        fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1"
+        b = Board(); b.load_fen(fen)
+        # Petit roque : e1→g1 (51→71)
+>       assert is_valid_move('wK', 51, 71, b, b.last_move)
+E       AssertionError: assert False
+E        +  where False = is_valid_move('wK', 51, 71, Board(pieces={18: 'bR', 28: 'bN', 38: 'bB', 48: 'bQ', 58: 'bK', 68: 'bB', 78: 'bN', 88: 'bR', 17: 'bP', 27: 'bP', 37: ...'q': True}, en_passant_target=None, turn='w', last_move=None, last_move_was_capture=False, history=[], game_over=False), None)
+E        +    where None = Board(pieces={18: 'bR', 28: 'bN', 38: 'bB', 48: 'bQ', 58: 'bK', 68: 'bB', 78: 'bN', 88: 'bR', 17: 'bP', 27: 'bP', 37: ...'q': True}, en_passant_target=None, turn='w', last_move=None, last_move_was_capture=False, history=[], game_over=False).last_move
+
+tests\test_full_rules.py:60: AssertionError
+________________________________________________________________________________________________________________________________ test_fairy_piece_wazir _________________________________________________________________________________________________________________________________
+
+    def test_fairy_piece_wazir():
+        # Définissez un wazir (mvt d'une case orthogonale)
+        # On ajoute temporairement Delta pour W:
+        from baten_chess_engine.core.move_validator import FAIRY_DELTAS
+        FAIRY_DELTAS['W'] = [(1,0),(-1,0),(0,1),(0,-1)]
+        fen = "8/8/8/3W4/8/8/8/4k3 w - - 0 1"
+        b = Board(); b.load_fen(fen)
+        # wazir en d5 (44) peut aller en d6 (45)
+>       assert is_valid_move('wW', 44, 45, b, b.last_move)
+E       AssertionError: assert False
+E        +  where False = is_valid_move('wW', 44, 45, Board(pieces={45: 'wW', 51: 'bK'}, castling_rights={'K': True, 'Q': True, 'k': True, 'q': True}, en_passant_target=None, turn='w', last_move=None, last_move_was_capture=False, history=[], game_over=False), None)
+E        +    where None = Board(pieces={45: 'wW', 51: 'bK'}, castling_rights={'K': True, 'Q': True, 'k': True, 'q': True}, en_passant_target=None, turn='w', last_move=None, last_move_was_capture=False, history=[], game_over=False).last_move
+
+tests\test_full_rules.py:85: AssertionError
+================================================================================================================================ short test summary info ================================================================================================================================
+FAILED tests/test_app.py::test_illegal_move_self_check - AssertionError: assert 'in_check' in 'pinned_piece'
+FAILED tests/test_app.py::test_checkmate_message_and_game_over - AssertionError: assert False
+FAILED tests/test_full_rules.py::test_checkmate_simple - AssertionError: assert False
+FAILED tests/test_full_rules.py::test_castling - AssertionError: assert False
+FAILED tests/test_full_rules.py::test_fairy_piece_wazir - AssertionError: assert False
+5 failed, 29 passed in 0.67s
+
+C:\Users\dell\Documents\baten_chess>

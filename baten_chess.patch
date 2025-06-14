@@ -1,0 +1,88 @@
+diff --git a/baten_chess_engine/__init__.py b/baten_chess_engine/__init__.py
+index e0a1f2a..d4b3c5f 100644
+--- a/baten_chess_engine/__init__.py
++++ b/baten_chess_engine/__init__.py
+@@ -1,4 +1,12 @@
+ """Baten Chess Engine package."""
++# On forwarde l’API publique depuis core/
++from .core.board          import Board
++from .core.move_validator import is_valid_move
++from .core.rules          import is_in_check, square_attacked, castling_allowed, move_respects_pin, opposite
++from .core.check_rules    import generate_legal_moves, is_checkmate, is_stalemate
++from .error_messages      import ERROR_MESSAGES as error_messages
++
++__all__ = [
++    "Board", "is_valid_move",
++    "is_in_check", "square_attacked", "castling_allowed", "move_respects_pin", "opposite",
++    "generate_legal_moves", "is_checkmate", "is_stalemate",
++    "error_messages"
++]
+ 
+diff --git a/baten_chess_engine/web/app.py b/baten_chess_engine/web/app.py
+index f5b7c3d..a1b2c3e 100644
+--- a/baten_chess_engine/web/app.py
++++ b/baten_chess_engine/web/app.py
+@@ -1,7 +1,7 @@
+ # -*- coding: utf-8 -*-
+-from flask import Flask, render_template, request, jsonify
++from flask import Flask, render_template, request, jsonify
+ import logging
+ import copy
+
+-from alternation_engine import (
++from alternation_engine import (
+     AlternationEngine, Phase,
+     NeverAlternate, StrictAlternate,
+     MoveContext
+@@ -9,7 +9,7 @@ from alternation_engine import (
+-from baten_chess_engine import error_messages
+-from baten_chess_engine.move_validator import is_valid_move
++from baten_chess_engine import error_messages
++from baten_chess_engine import is_valid_move
+
+ # Règles de base
+-from baten_chess_engine.rules import (
++from baten_chess_engine import is_in_check, square_attacked, move_respects_pin, castling_allowed, opposite
+
+ from baten_chess_engine.check_rules import (
+     generate_legal_moves,
+diff --git a/baten_chess_engine/web/templates/board.html b/baten_chess_engine/web/templates/board.html
+index 1234abc..5678def 100644
+--- a/baten_chess_engine/web/templates/board.html
++++ b/baten_chess_engine/web/templates/board.html
+@@ -1,5 +1,5 @@
+-<!DOCTYPE html>
++<!DOCTYPE html>
+ <html>
+ <head>
+     <meta charset="UTF-8">
+diff --git a/chess_app.py b/chess_app.py
+index 481ad3b..c9de8f1 100644
+--- a/chess_app.py
++++ b/chess_app.py
+@@ -1,7 +1,7 @@
+-from flask import Flask, render_template, request, jsonify
++from flask import Flask, render_template, request, jsonify
+ import logging
+ import copy
+
+-from alternation_engine import (
++from alternation_engine import (
+     AlternationEngine, Phase,
+     NeverAlternate, StrictAlternate,
+     MoveContext
+@@ -17,11 +17,13 @@ from alternation_engine import (
+ # instantiate error messages
+ errors = error_messages.ERROR_MESSAGES
+
++# phases setup for classical chess: strict alternate every move
+ phases = [
+     Phase('battle', StrictAlternate(), lambda ctx: False),
+ ]
+ engine = AlternationEngine(phases, initial_turn='w')
+
+-logging.basicConfig(level=logging.INFO)
++logging.basicConfig(level=logging.INFO)
+ app = Flask(__name__)
+ board = Board()
+ board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")

@@ -1,7 +1,7 @@
 import json
 import pytest
 from chess_app import app, board, engine
-from baten_chess_engine.board import Board
+from baten_chess_engine.core.board import Board
 
 @pytest.fixture
 def client():
@@ -56,7 +56,7 @@ def test_checkmate_message_and_game_over(client):
     rv = post_move(client, 'bK', 18, 19)  # n’importe quel coup illégal
     data = rv.get_json()
     # Après une tentative, game_over doit être True
-    assert board.game_over
+    assert data['game_over']
     assert not data['valid']
     assert "checkmate" in data['message']
 

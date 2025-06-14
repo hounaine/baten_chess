@@ -1,26 +1,44 @@
 # dsl/spec_pawn.yaml
+piece: Pawn
+piece_type: 'P'
+slide: false
 
-state: Jeu
-fields:
-  - position
-  - castling_rights
-  - en_passant_target
-  - turn
-  - history
+guards:
+  - name: ColorGuard
+    code: "piece[1] == 'P' and color == state.turn"
+  - name: PawnAdvanceGuard
+    code: >-
+      (dc == 0
+       and ((color=='w' and dl==1) or (color=='b' and dl==-1))
+       and state.is_empty(dst))
+  - name: PawnDoubleStepGuard
+    code: >-
+      (dc == 0
+       and ((color=='w' and l1==2 and dl==2) or (color=='b' and l1==7 and dl==-2))
+       and state.is_empty(mid) and state.is_empty(dst))
+  - name: PawnCaptureGuard
+    code: >-
+      (abs(dc)==1
+       and ((color=='w' and dl==1) or (color=='b' and dl==-1))
+       and (state.is_enemy(dst, color) or dst==state.en_passant_target))
+  - name: PromotionGuard
+    code: "(piece[1]=='P' and (l2 == 1 or l2 == 8))"
 
 transitions:
   - name: Move
-    piece_type: 'P'
     when:
-      - "piece[1] == 'P'"                               # c’est un pion
-      - "piece[0] == state.turn"                        # bonne couleur au trait
-      - "c1, l1 = divmod(src, 10)"                      # colonne, rangée source
-      - "c2, l2 = divmod(dst, 10)"                      # colonne, rangée destination
+      - "piece[1] == 'P'"
+      - "color == state.turn"
+      - "c1, l1 = divmod(src,10)"
+      - "c2, l2 = divmod(dst,10)"
       - "dc = c2 - c1"
       - "dl = l2 - l1"
-      - "((dc == 0 and ((piece[0]=='w' and dl==1) or (piece[0]=='b' and dl==-1)))"   # avance 1
-      - " or (dc == 0 and ((piece[0]=='w' and l1==2 and dl==2) or (piece[0]=='b' and l1==7 and dl==-2)))"  # double-pas
-      - " or (abs(dc)==1 and ((piece[0]=='w' and dl==1) or (piece[0]=='b' and dl==-1)))"  # capture diagonale
-      - " or (dst == state.en_passant_target))"           # prise en passant
+      - "mid = (src + dst) // 2"
     do:
       - "state.apply_move(piece, src, dst)"
+    guards:
+      - ColorGuard
+      - PawnAdvanceGuard
+      - PawnDoubleStepGuard
+      - PawnCaptureGuard
+      - PromotionGuard
